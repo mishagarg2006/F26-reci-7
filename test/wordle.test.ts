@@ -15,6 +15,51 @@ const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 // Step 1: a generator for five-letter uppercase words.
 // const word = ...
 
+const wordFrom = (letters: string) =>
+  fc.array(fc.constantFrom(...letters), { minLength: 5, maxLength: 5 }).map(cs => cs.join('')); 
+const word = wordFrom('ABC');
+
+// Pattern Invariant. The result always has exactly five colors.
+it('returns exactly five colors', () => {
+  fc.assert(
+    fc.property(word, word, (secret, guess) => {
+      expect(matchGuess(secret, guess)).toHaveLength(5);
+    }),
+  );
+});
+
+// Pattern Invariant. Every color is G, Y, or B.
+it('only uses the colors G, Y, B', () => {
+  fc.assert(
+    fc.property(word, word, (secret, guess) => {
+      for (const c of matchGuess(secret, guess)) expect(['G', 'Y', 'B']).toContain(c);
+    }),
+  );
+});
+
+// Pattern conditional. If the guess is the secret, every color is green.
+it('guessing the secret gives all greens', () => {
+  fc.assert(
+    fc.property(word, w => {
+      expect(matchGuess(w, w)).toEqual(['G', 'G', 'G', 'G', 'G']);
+    }),
+  );
+});
+
+// Pattern Invariant. No letter is credited more times than the secret contains it.
+it('never credits a letter more times than the secret contains it', () => {
+  fc.assert(
+    fc.property(word, word, (secret, guess) => {
+      const result = matchGuess(secret, guess);
+      for (const letter of new Set(guess)) {
+        const credited = [...guess].filter((c, i) => c === letter && result[i] !== 'B').length;
+        const inSecret = [...secret].filter((c, i) => c === letter).length;
+        expect(credited).toBeLessThanOrEqual(inSecret);
+      }
+    }),
+  );
+});
+
 describe('matchGuess', () => {
   it.todo('returns exactly five colors');
   it.todo('only uses the colors G, Y, B');
