@@ -60,6 +60,17 @@ it('never credits a letter more times than the secret contains it', () => {
   );
 });
 
+// Pattern Conditional: returns yellow when a letter is in the word, in the wrong position.
+it('returns yellow when a letter is in the word, in the wrong position', () => {
+  fc.assert(
+    fc.property(word, w => {
+      const w1 = 'AC' + w[2] + w[3] + w[4];
+      const w2 = 'CACCC';
+      expect(matchGuess(w1, w2)).toContain('Y');
+    }),
+  );
+});
+
 describe('matchGuess', () => {
   it.todo('returns exactly five colors');
   it.todo('only uses the colors G, Y, B');

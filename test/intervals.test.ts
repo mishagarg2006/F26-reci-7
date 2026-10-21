@@ -12,7 +12,7 @@ import { mergeIntervals, type Interval } from '../src/intervals';
 
 // A first attempt at a generator. It has a problem: run the tests and read
 // the counterexample.
-const interval: fc.Arbitrary<Interval> = fc.tuple(fc.integer(), fc.nat()).map(([first, offset]) => [first, first + offset + 1] as Interval);
+const interval: fc.Arbitrary<Interval> = fc.tuple(fc.integer({min: -10, max: 0}), fc.nat({min:0, max: 10})).map(([first, offset]) => [first, first + offset + 1] as Interval);
 const intervalList = fc.array(interval);
 
 describe('mergeIntervals', () => {
@@ -47,8 +47,70 @@ describe('mergeIntervals', () => {
     );
   });
 
-  // Pattern metamorphic. Duplicating the input intervals should not change the output.
-  
+  // Pattern: invariant. The input is unchanged.
+  it('the input is unchanged', () => {
+    fc.assert(
+      fc.property(intervalList, xs => {
+        const original = xs.map(([start, end]) => [start, end]);
+        const out = mergeIntervals(xs);
+        expect(xs).toEqual(original);
+      }),
+    );
+  });
 
+  // Pattern differential. The input covers point p when the merged output covers p. 
+  const covers = (xs: Interval[], p: number): boolean => xs.some(([start, end]) => start <= p && p <= end);
+  it('the input covers point p when the merged output covers p', () => {
+    fc.assert(
+      fc.property(intervalList, xs => {
+        const merged = mergeIntervals(xs);
+        for (let p = -15; p <= 15; p++) {
+          expect(covers(xs, p)).toEqual(covers(merged, p));
+        }
+        for (let i = 1; i < xs.length; i++) {
+          xs[i][0] = xs[i - 1][1];
+          xs[i][1] = xs[i - 1][1] + 5;
+        }
+        const merged_touching = mergeIntervals(xs);
+        for (let p = -15; p <= 15; p++) {
+          expect(covers(xs, p)).toEqual(covers(merged_touching, p));
+        }
+      }),
+    );
+  });
+
+  // Pattern metamorphic. Duplicating the input intervals should not change the output.
+  it('duplicating the input intervals should not change the output', () => {
+    fc.assert(
+      fc.property(intervalList, xs => {
+        const out = mergeIntervals(xs);
+        const duplicate = [...xs, ...xs];
+        const duplicate_out = mergeIntervals(duplicate);
+        expect(out).toEqual(duplicate_out);
+      }),
+    );
+  });
+
+  // Pattern algebraic. merging a merged interval should not change the output.
+  it('merging a merged interval should not change the output', () => {
+    fc.assert(
+      fc.property(intervalList, xs => {
+        expect(mergeIntervals(mergeIntervals(xs))).toEqual(mergeIntervals(xs));
+      }),
+    );
+  });
+
+  // Pattern conditional. If the input intervals do not overlap or touch, the output should be the same as the input.
+  it('if the input intervals do not overlap or touch, the output should be the same as the input', () => {
+    fc.assert(
+      fc.property(intervalList, xs => {
+        for (let i = 1; i < xs.length; i++) {
+          xs[i][0] = xs[i - 1][1] + 1;
+          xs[i][1] = xs[i - 1][1] + 5;
+        }
+        expect(mergeIntervals(xs)).toEqual(xs);
+      }),
+    );
+  });
 
 });
